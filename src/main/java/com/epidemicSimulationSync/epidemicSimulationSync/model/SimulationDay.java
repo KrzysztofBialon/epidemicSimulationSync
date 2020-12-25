@@ -1,0 +1,14 @@
+package com.epidemicSimulationSync.epidemicSimulationSync.model;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
+@Getter
+public class SimulationDay
+{
+    private final int pi; //number of infected
+    private final int pv; //number of susceptible
+    private final int pm; //number of death
+    private final int pr; //number of recovered & resistant
+}
