@@ -13,6 +13,7 @@ import java.util.List;
 public class SimulationRecord
 {
     @Id
-    private final ObjectId ownerId;
+    private String id;
+    private final String ownerId;
     private final List<SimulationDay> records;
 }
