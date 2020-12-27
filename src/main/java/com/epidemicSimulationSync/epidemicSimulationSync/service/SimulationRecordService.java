@@ -20,7 +20,7 @@ public class SimulationRecordService
     }
     public SimulationRecord getById(String id)
     {
-        return repository.getById(id);
+        return repository.findById(id).get();
     }
     public SimulationRecord save(SimulationRecord record)
     {
@@ -28,6 +28,6 @@ public class SimulationRecordService
     }
     public SimulationRecord getSimulationRecordByOwnerId(String id)
     {
-        return repository.getByOwnerId(id);
+        return repository.findByOwnerId(id);
     }
 }

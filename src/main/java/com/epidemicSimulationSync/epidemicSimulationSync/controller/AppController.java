@@ -9,15 +9,23 @@ import com.epidemicSimulationSync.epidemicSimulationSync.util.Simulation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.minidev.json.JSONObject;
+import org.bson.types.ObjectId;
+import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.rest.webmvc.RepositoryRestController;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.Link;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.Errors;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
@@ -25,6 +33,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RepositoryRestController
 @RequestMapping("/simulation")
+@Validated
 public class AppController
 {
     private ObjectMapper objectMapper;
@@ -40,10 +49,16 @@ public class AppController
     }
 
     @PostMapping(value = "/generate", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<EntityModel<SimulationRecord>> createSimulation(@RequestBody JSONObject setUpBody) throws JsonProcessingException
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<EntityModel<SimulationRecord>> createSimulation(
+            @Valid @RequestBody SimulationSetUp setUpBody, Errors errors)
     {
+        if(errors.hasErrors())
+            return new ResponseEntity<>(HttpStatus.UNPROCESSABLE_ENTITY);
+
         List<SimulationDay> list = new ArrayList<>();
-        SimulationSetUp setUp = objectMapper.readValue(setUpBody.toJSONString(), SimulationSetUp.class);
+        SimulationSetUp setUp = setUpBody;
+        setUp.setId(new ObjectId());
         SimulationDay firstDay = new SimulationDay(setUp.getI(), setUp.getP()- setUp.getI(), 0, 0);
         Simulation simulation = new Simulation(setUp);
 
@@ -57,22 +72,37 @@ public class AppController
         simulationSetUpService.save(setUp);
 
         SimulationRecord simulationRecord = simulationRecordService.save(new SimulationRecord(setUp.getId().toHexString(), list));
-        Link generalLink = linkTo(AppController.class).withSelfRel();
-        Link recordOwnerLink =
-                linkTo(AppController.class).slash("SimulationSetUps").slash(setUp.getId()).withSelfRel();
-        Link self =
-                linkTo(AppController.class).slash("SimulationRecords").slash(simulationRecord.getId()).withSelfRel();
-        Link dayLink =
-                linkTo(AppController.class).slash("/simulationRecords/'{id}'?day").withSelfRel();
 
-        EntityModel<SimulationRecord> entityModel = EntityModel.of(simulationRecord, generalLink, recordOwnerLink, self, dayLink);
+        Link self =
+                linkTo(AppController.class).slash("simulationRecords").slash(simulationRecord.getId()).withSelfRel();
+        Link recordOwnerLink =
+                linkTo(AppController.class).slash("simulationSetUps").slash(setUp.getId()).withRel("simulationSetUp");
+        Link dayLink =
+                linkTo(AppController.class).slash("/simulationRecords/{id}/simulationDays/{day}").withRel("simulationDay");
+
+        EntityModel<SimulationRecord> entityModel = EntityModel.of(simulationRecord, recordOwnerLink, self, dayLink);
 
         return new ResponseEntity<>(entityModel, HttpStatus.CREATED);
     }
 
-    @GetMapping(value = "/simulationRecords/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<SimulationDay> getDay(@PathVariable(value = "id") String id, @RequestParam(value = "day") int day)
+    @GetMapping(value = "/simulationRecords/{id}/simulationDays/{day}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<EntityModel<SimulationDay>> getDay(@PathVariable(value = "id") String id, @PathVariable(value = "day") int day)
     {
-        return new ResponseEntity<>(simulationRecordService.getById(id).getRecords().get(day), HttpStatus.FOUND);
+        SimulationDay simulationDay = simulationRecordService.getById(id).getRecords().get(day);
+
+        if(simulationDay.equals(null))
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+
+        Link selfLink =
+                linkTo(methodOn(AppController.class).getDay(id, day)).withSelfRel();
+        Link recordLink =
+                linkTo(AppController.class).slash("simulationRecords").slash(id).withRel("simulationRecord");
+        Link allLink =
+                linkTo(AppController.class).slash("simulationRecords").withRel("simulationRecords");
+
+        EntityModel entityModel =
+                EntityModel.of(simulationRecordService.getById(id).getRecords().get(day), selfLink, recordLink, allLink);
+
+        return new ResponseEntity<>(entityModel, HttpStatus.OK);
     }
 }
