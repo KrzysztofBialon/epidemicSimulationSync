@@ -18,9 +18,13 @@ public class SimulationRecordService
     {
         this.repository = repository;
     }
-    public void save(SimulationRecord record)
+    public SimulationRecord getById(String id)
     {
-        repository.save(record);
+        return repository.getById(id);
+    }
+    public SimulationRecord save(SimulationRecord record)
+    {
+        return repository.save(record);
     }
     public SimulationRecord getSimulationRecordByOwnerId(String id)
     {

@@ -1,5 +1,6 @@
 package com.epidemicSimulationSync.epidemicSimulationSync.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
@@ -14,6 +15,8 @@ public class SimulationRecord
 {
     @Id
     private String id;
+    @JsonProperty(value = "ownerId")
     private final String ownerId;
+    @JsonProperty(value = "records")
     private final List<SimulationDay> records;
 }
